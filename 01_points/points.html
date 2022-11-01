@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Points</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+
+        let initLoad = true;
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/empty-v8',
+            center: [-120,47],
+            zoom: 7,
+            minZoom: 7,
+            projection: 'mercator'
+        });
+
+        map.on('load', () => {
+
+            map.addSource('mapbox-dem', {
+                'type': 'raster-dem',
+                'url': 'mapbox://mapbox.terrain-rgb',
+                'tileSize': 512,
+                'maxzoom': 14,
+                'minzoom': 0
+            });
+            map.setTerrain({
+                'source': 'mapbox-dem',
+                'exaggeration': 2.5
+            });
+
+            map.once('idle', generatePoints);
+            map.on('moveend', generatePoints);
+        });
+
+        function generatePoints() {
+            const bounds = map.getBounds();
+            const padding = 0.15;
+            const extent = [bounds._sw.lng-padding, bounds._sw.lat-padding, bounds._ne.lng+padding, bounds._ne.lat+padding];
+            const cellSide = 1;
+            const options = {units: 'miles'};
+            const grid = turf.pointGrid(extent, cellSide, options);
+
+            turf.featureEach(grid, function (currentFeature, featureIndex) {
+                const lngLat = {
+                    lng: currentFeature.geometry.coordinates[0],
+                    lat: currentFeature.geometry.coordinates[1]
+                };
+
+                const elevation = map.queryTerrainElevation(lngLat, {
+                    exaggerated: false
+                });
+
+                if (elevation) {
+                    currentFeature.properties = {
+                        elev: elevation
+                    };
+                } else {
+                    currentFeature.properties = {
+                        elev: 0
+                    };
+                }
+            });
+
+            if (initLoad) {
+                initLoad = false;
+                map.addSource('points', {
+                    'type': 'geojson',
+                    'data': grid
+                });
+
+                map.addLayer({
+                    'id': 'globe-points',
+                    'type': 'circle',
+                    'source': 'points',
+                    'paint': {
+                        'circle-radius': ['/', ['get', 'elev'], 700],
+                        'circle-color': '#000'
+                    },
+                    'filter': ['>=', ['get', 'elev'], 1]
+                });
+            } else {
+                map.getSource('points').setData(grid);
+            }
+        }
+</script>
+</body>
+</html>
