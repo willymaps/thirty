@@ -51,7 +51,6 @@
             });
 
             map.on('move', (e) => {
-                
                 const newCenter = map.getCenter();
                 const center = [newCenter.lng, newCenter.lat];
                 buildScene(center);
@@ -60,7 +59,7 @@
 
         function buildPoly(e) {
             const radius = 4000;
-            const options = {steps: 50, units: 'kilometers', properties: {foo: 'bar'}};
+            const options = {steps: 50, units: 'kilometers'};
             const circle = turf.circle(e, radius, options);
 
             var union = turf.difference(countries.geometries[0], circle);
