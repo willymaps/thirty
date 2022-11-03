@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Poly</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        let initLoad = true;
+        let countries;
+        const mapCenter = [0, 0];
+        
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            center: mapCenter,
+            zoom: 1.7,
+            minZoom: 1.5,
+            maxZoom: 1.7,
+            projection: 'globe'
+        });
+
+        map.on('load', () => {
+
+            d3.json('../data/poly.json', function (d) {
+                countries = d;
+                buildScene(mapCenter);
+            });
+
+            map.on('move', (e) => {
+                
+                const newCenter = map.getCenter();
+                const center = [newCenter.lng, newCenter.lat];
+                buildScene(center);
+            });
+        });
+
+        function buildPoly(e) {
+            const radius = 4000;
+            const options = {steps: 50, units: 'kilometers', properties: {foo: 'bar'}};
+            const circle = turf.circle(e, radius, options);
+
+            var union = turf.difference(countries.geometries[0], circle);
+
+            return {
+                'circle': circle,
+                'union': union
+            };
+        }
+
+        function buildScene(e) {
+            const poly = buildPoly(e);
+
+            if (initLoad) {
+                initLoad = false;
+                
+                map.addSource('country', {
+                    'type': 'geojson',
+                    'data': countries
+                });
+
+                map.addSource('buffer', {
+                    'type': 'geojson',
+                    'data': poly.circle
+                });
+
+                map.addSource('union', {
+                    'type': 'geojson',
+                    'data': poly.union
+                });
+
+                map.addLayer({
+                    'id': 'countryFill',
+                    'type': 'fill',
+                    'source': 'country',
+                    'paint': {
+                        'fill-color': '#111'
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'unionFill',
+                    'type': 'fill',
+                    'source': 'union',
+                    'paint': {
+                        'fill-color': '#efefef'
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'bufferLine',
+                    'type': 'line',
+                    'source': 'buffer',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#222',
+                        'line-width': 2
+                    }
+                });
+
+            } else {
+                map.getSource('buffer').setData(poly.circle);
+                map.getSource('union').setData(poly.union);
+            }
+        }
+</script>
+</body>
+</html>
