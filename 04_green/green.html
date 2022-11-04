@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Green</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        let initLoad = true;
+        const mapCenter = [0, 0];
+        
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/empty-v8',
+            center: mapCenter,
+            zoom: 3,
+            minZoom: 3,
+            maxZoom: 9,
+            projection: 'mercator'
+        });
+
+        map.on('load', () => {
+
+            map.on('move', (e) => {
+                const newCenter = map.getCenter();
+                const center = [newCenter.lng, newCenter.lat];
+                buildGrid(center);
+            });
+
+            buildGrid(mapCenter);
+        });
+
+        function buildGrid(center) {
+            const boundsDiff = 20;
+            const centerPoint = turf.point(center);
+            const randomPoints = turf.randomPoint(2000, {bbox: [centerPoint.geometry.coordinates[0]-boundsDiff, centerPoint.geometry.coordinates[1]-boundsDiff, centerPoint.geometry.coordinates[0]+boundsDiff, centerPoint.geometry.coordinates[1]+boundsDiff]});
+            buildScene(randomPoints);
+        }
+
+        function buildScene(grid) {
+
+            if (initLoad) {
+                initLoad = false;
+                
+                map.addSource('grid', {
+                    'type': 'geojson',
+                    'data': grid
+                });
+
+                map.addLayer(
+                    {
+                        'id': 'earthquakes-heat',
+                        'type': 'heatmap',
+                        'source': 'grid',
+                        'maxzoom': 9,
+                        'paint': {
+                            'heatmap-weight': 1,
+                            'heatmap-intensity': 0.1,
+                            'heatmap-color': [
+                                'interpolate',
+                                ['linear'],
+                                ['heatmap-density'],
+                                0,
+                                'rgba(255,255,255,0)',
+                                0.2,
+                                'rgb(153,216,201)',
+                                0.4,
+                                'rgb(102,194,164)',
+                                0.6,
+                                'rgb(65,174,118)',
+                                0.8,
+                                'rgb(35,139,69)',
+                                1,
+                                'rgb(0,68,27)'
+                            ],
+                            'heatmap-radius': 60
+                        }
+                    }
+                );
+            } else {
+                map.getSource('grid').setData(grid);
+            }
+        }
+</script>
+</body>
+</html>
