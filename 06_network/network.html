@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Lines</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #111;
+        }
+
+        #mapNetwork {
+            position: absolute;
+            bottom: 0;
+            height:50%;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div id="mapNetwork"></div>
+    <script>
+
+        const mapStyle = {
+        'version': 8,
+        'sources': {
+            'satellite': {
+            'type': 'raster',
+            'url': 'mapbox://mapbox.satellite',
+            'tileSize': 256
+            }
+        },
+        'layers': [
+            {
+            'id': 'background',
+            'type': 'background',
+            'paint': {
+                'background-color': 'rgb(4,7,14)'
+            }
+            },
+            {
+            'id': 'satellite',
+            'type': 'raster',
+            'source': 'satellite',
+            'paint': {
+                'raster-saturation': -1
+            }
+            }
+        ]};
+
+        const mapCenter = [-80, 30];
+
+        let initLoad = true;
+        let lineArray = [mapCenter];
+        
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/empty-v8',
+            center: mapCenter,
+            zoom: 5,
+            minZoom: 5,
+            pitch: 0,
+            bearing: 0,
+            projection: 'mercator',
+            interactive: false
+        });
+
+        const mapNetwork = new mapboxgl.Map({
+            container: 'mapNetwork',
+            style: mapStyle,
+            center: mapCenter,
+            zoom: 3,
+            minZoom: 3,
+            maxZoom: 3,
+            pitch: 40,
+            bearing: 0,
+            projection: 'globe'
+        });
+
+        mapNetwork.on('load', () => {
+            mapNetwork.on('move', () => {
+                const center = mapNetwork.getCenter();
+                map.easeTo({
+                    center: [center.lng, center.lat],
+                    padding: {bottom: 200}
+                });
+                lineArray.push([center.lng, center.lat])
+                generateLine(lineArray);
+            });
+        });
+
+        function generateLine(center) {
+            const line = turf.lineString(lineArray);
+
+            if (initLoad) {
+                initLoad = false;
+                
+                map.addSource('line', {
+                    'type': 'geojson',
+                    'data': line
+                });
+
+                mapNetwork.addSource('line', {
+                    'type': 'geojson',
+                    'data': line
+                });
+
+                map.addLayer({
+                    'id': 'lineLayer',
+                    'type': 'line',
+                    'source': 'line',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': 'pink',
+                        'line-blur': 0,
+                        'line-width': 2,
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'lineLayerBlur',
+                    'type': 'line',
+                    'source': 'line',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': 'pink',
+                        'line-blur': 20,
+                        'line-width': 20,
+                    }
+                });
+
+                mapNetwork.addLayer({
+                    'id': 'lineLayer',
+                    'type': 'line',
+                    'source': 'line',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': 'pink',
+                        'line-width': 2,
+                    }
+                });
+            } else {
+                map.getSource('line').setData(line);
+                mapNetwork.getSource('line').setData(line);
+            }
+        }
+</script>
+</body>
+</html>
