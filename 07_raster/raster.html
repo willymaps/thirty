@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Raster</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        #mapWrap {
+            position: absolute;
+            width:100%;
+            display: block;
+            margin: 0 auto;
+            text-align: center;
+            padding: 30px 0;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        #map, #mapRaster {
+            width: 45%;
+            top: 0;
+            bottom: 0;
+            height:100%;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        #mapWrap #seperator {
+            width:5%;
+            text-align: center;
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mapWrap">
+        <div id="map"></div>
+        <div id="seperator">→</div>
+        <div id="mapRaster"></div>
+    </div>
+    <script>
+
+        const mapCenter = [0, 44];
+        let initLoad = true;
+        
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/william-davis/cla5l5d54000014qq78gvi0yx',
+            center: mapCenter,
+            zoom: 4,
+            minZoom: 4,
+            pitch: 0,
+            bearing: 0,
+            projection: 'mercator',
+        });
+
+        const mapRaster = new mapboxgl.Map({
+            container: 'mapRaster',
+            style: 'mapbox://styles/mapbox/empty-v8',
+            center: mapCenter,
+            zoom: 4,
+            minZoom: 4,
+            pitch: 0,
+            bearing: 0,
+            projection: 'mercator',
+            interactive: false
+        });
+
+        map.on('load', () => {
+            rasterize();
+            map.on('moveend', () => {
+                rasterize();
+            });
+        });
+
+        function rasterize() {
+            const center = map.getCenter();
+            const bounds = map.getBounds();
+            const extent = [bounds._sw.lng, bounds._sw.lat, bounds._ne.lng, bounds._ne.lat];
+            const cellSide = 70;
+            const options = {units: 'kilometers'};
+            const points = turf.squareGrid(extent, cellSide, options);
+
+            turf.featureEach(points, function (currentFeature, featureIndex) {
+                const pointCenter = turf.centroid(currentFeature);
+                const lngLat = {
+                    lng: pointCenter.geometry.coordinates[0],
+                    lat: pointCenter.geometry.coordinates[1]
+                };
+                const point = map.project(lngLat);
+                const features = map.queryRenderedFeatures(
+                    point,
+                    {layers: ['landcover', 'water', 'waterway', 'land']}
+                );
+
+                if (features.length === 4) {
+                    currentFeature.properties = {
+                        landuse: 'wood'
+                    };
+                } else if (features.length === 3) {
+                    currentFeature.properties = {
+                        landuse: 'scrub'
+                    };
+                } else if (features.length === 2) {
+                    currentFeature.properties = {
+                        landuse: 'grass'
+                    };
+                } else if (features.length === 1 && features[0].layer.id === 'landcover') {
+                    currentFeature.properties = {
+                        landuse: 'crop'
+                    };
+                } else if (features.length === 1) {
+                    currentFeature.properties = {
+                        landuse: 'water'
+                    };
+                } else {
+                    currentFeature.properties = {
+                        landuse: 'none'
+                    };
+                }
+            });
+            mapRaster.setCenter(center);
+            generateGrid(points);
+        }
+
+        function generateGrid(poly) {
+            if (initLoad) {
+                initLoad = false;
+                
+                mapRaster.addSource('grid', {
+                    'type': 'geojson',
+                    'data': poly
+                });
+
+                mapRaster.addLayer({
+                    'id': 'gridLayerFill',
+                    'type': 'fill',
+                    'source': 'grid',
+                    'layout': {},
+                    'paint': {
+                        'fill-color': [
+                            'match',
+                            ['get', 'landuse'],
+                            'wood',
+                            'darkgreen',
+                            'scrub',
+                            'green',
+                            'grass',
+                            'lightgreen',
+                            'crop',
+                            'brown',
+                            'water',
+                            'aqua',
+                            'none',
+                            'yellow',
+                            'white'
+                        ]
+                    }
+                });
+
+                mapRaster.addLayer({
+                    'id': 'gridLayer',
+                    'type': 'line',
+                    'source': 'grid',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#000',
+                        'line-width': 1,
+                    }
+                });
+            } else {
+                mapRaster.getSource('grid').setData(poly);
+            }
+        }
+</script>
+</body>
+</html>
