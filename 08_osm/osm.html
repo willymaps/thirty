@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Data</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #F2EFEA;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        let initLoad = true;
+        const mapCenter = [0, 0];
+        
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/empty-v8',
+            center: mapCenter,
+            zoom: 7,
+            pitch: 40,
+            minZoom: 6,
+            maxZoom: 7,
+            projection: 'mercator'
+        });
+
+        map.on('load', () => {
+            map.setLight({
+                "anchor": "viewport",
+                "color": "white",
+                "intensity": 0.05
+            });
+            generateCity();
+        });
+
+        function generateCity() {
+            const bounds = map.getBounds();
+            const padding = 0;
+            const extent = [bounds._sw.lng-padding, bounds._sw.lat-padding, bounds._ne.lng+padding, bounds._ne.lat+padding];
+            const cellSide = 50;
+            const options = {units: 'miles'};
+            const squareGrid = turf.squareGrid(extent, cellSide, options);
+
+            const motorwayLine = turf.lineString([[(bounds._sw.lng-padding), (bounds._sw.lat-padding)], [(bounds._ne.lng+padding), (bounds._ne.lat+padding)]]);
+            motorwayLine.properties = {
+                'lineColor': 'motorway'
+            };
+            const gridLinesCollection = turf.featureCollection([]);
+
+            turf.featureEach(squareGrid, (currentFeature, index) => {
+                const squareLines = turf.polygonToLine(currentFeature);
+                if (index % 5) {
+                    squareLines.properties = {
+                        'lineColor': 'major'
+                    }
+                } else {
+                    squareLines.properties = {
+                        'lineColor': 'local'
+                    }
+                }
+                gridLinesCollection.features.push(squareLines);
+            });
+            gridLinesCollection.features.push(motorwayLine);
+
+            const points = turf.randomPoint(1000, {bbox: extent});
+            const buildingCollection = turf.featureCollection([]);
+
+            turf.featureEach(points, (currentFeature, index) => {
+                const maxBaseHeight = 50000;
+                const minBaseHeight = 10000;
+                const baseHeight = Math.floor(Math.random() * maxBaseHeight) + minBaseHeight;
+                const pointPadding = 0.1;
+                const coords = currentFeature.geometry.coordinates;
+                const pointExtent = [coords[0]-pointPadding, coords[1]-pointPadding, coords[0]+pointPadding, coords[1]+pointPadding];
+                const poly = turf.bboxPolygon(pointExtent);
+
+                const gridIntersect = turf.booleanIntersects(poly, gridLinesCollection);
+                if (!gridIntersect) {
+                    const buildingIntersect = turf.booleanIntersects(poly, buildingCollection);
+                    if (!buildingIntersect) {
+                        poly.properties = {
+                            'height': baseHeight 
+                        }
+                        buildingCollection.features.push(poly);
+                    }
+                } 
+            });
+
+            const parks = turf.randomPoint(1000, {bbox: extent});
+            const parksCollection = turf.featureCollection([]);
+
+            turf.featureEach(parks, (currentFeature) => {
+                const maxSize = 1;
+                const minSize = 0.2;
+                const sizePadding = Math.floor(Math.random() * maxSize) + minSize;
+                const coords = currentFeature.geometry.coordinates;
+                const pointExtent = [coords[0]-sizePadding, coords[1]-sizePadding, coords[0]+sizePadding, coords[1]+sizePadding];
+                const poly = turf.bboxPolygon(pointExtent);
+
+                const gridIntersect = turf.booleanIntersects(poly, gridLinesCollection);
+                if (!gridIntersect) {
+                    const buildingIntersect = turf.booleanIntersects(poly, buildingCollection);
+                    if (!buildingIntersect) {
+                        const parkIntersect = turf.booleanIntersects(poly, parksCollection);
+                        if (!parkIntersect) {
+                            parksCollection.features.push(poly);
+                        }
+                    }
+                } 
+            });
+
+            const smallBuilds = turf.randomPoint(2000, {bbox: extent});
+            const smallBuildsCollection = turf.featureCollection([]);
+
+            turf.featureEach(smallBuilds, (currentFeature) => {
+                const maxBaseHeight = 20000;
+                const minBaseHeight = 1000;
+                const baseHeight = Math.floor(Math.random() * maxBaseHeight) + minBaseHeight;
+                const pointPadding = 0.1;
+                const coords = currentFeature.geometry.coordinates;
+                const pointExtent = [coords[0]-pointPadding, coords[1]-pointPadding, coords[0]+pointPadding, coords[1]+pointPadding];
+                const poly = turf.bboxPolygon(pointExtent);
+
+                const gridIntersect = turf.booleanIntersects(poly, gridLinesCollection);
+                if (!gridIntersect) {
+                    const buildingIntersect = turf.booleanIntersects(poly, buildingCollection);
+                    if (!buildingIntersect) {
+                        const parkIntersect = turf.booleanIntersects(poly, parksCollection);
+                        if (!parkIntersect) {
+                            const smallBuildsIntersect = turf.booleanIntersects(poly, smallBuildsCollection);
+                            if (!smallBuildsIntersect) {
+                                poly.properties = {
+                                    'height': baseHeight 
+                                }
+                                smallBuildsCollection.features.push(poly);
+                            }
+                        }
+                    }
+                }
+            });
+
+            buildScene(gridLinesCollection, buildingCollection, parksCollection, smallBuildsCollection);
+        }
+
+        function buildScene(grid, buildings, parks, smallBuildings) {
+            if (initLoad) {
+                initLoad = false;
+                
+                map.addSource('grid', {
+                    'type': 'geojson',
+                    'data': grid
+                });
+
+                map.addSource('buildings', {
+                    'type': 'geojson',
+                    'data': buildings
+                });
+
+                map.addSource('parks', {
+                    'type': 'geojson',
+                    'data': parks
+                });
+
+                map.addSource('smallBuildings', {
+                    'type': 'geojson',
+                    'data': smallBuildings
+                });
+
+                map.addLayer({
+                    'id': 'parksLayer',
+                    'type': 'fill',
+                    'source': 'parks',
+                    'paint': {
+                        'fill-color': '#D2F8D0'
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'gridLineCase',
+                    'type': 'line',
+                    'source': 'grid',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#c1bbb5',
+                        'line-width': 10
+                    }
+                });
+
+
+                map.addLayer({
+                    'id': 'motorwayLineCase',
+                    'type': 'line',
+                    'source': 'grid',
+                    'filter': ['==', ['get', 'lineColor'], 'motorway'],
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': '#333',
+                        'line-width': [
+                            'match',
+                            ['get', 'lineColor'],
+                            'motorway',
+                            13,
+                            10
+                        ],
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'gridLine',
+                    'type': 'line',
+                    'source': 'grid',
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-color': [
+                            'match',
+                            ['get', 'lineColor'],
+                            'local',
+                            '#F8F9C5',
+                            'motorway',
+                            '#DC96A2',
+                            '#fff'
+                        ],
+                        'line-width': [
+                            'match',
+                            ['get', 'lineColor'],
+                            'motorway',
+                            10,
+                            7
+                        ],
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'buildingLine',
+                    'type': 'fill-extrusion',
+                    'source': 'buildings',
+                    'paint': {
+                        'fill-extrusion-color': '#c1bbb5',
+                        'fill-extrusion-opacity': 1,
+                        'fill-extrusion-height': ['get', 'height']
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'smallBuildingLine',
+                    'type': 'fill-extrusion',
+                    'source': 'smallBuildings',
+                    'paint': {
+                        'fill-extrusion-color': '#D7D0CA',
+                        'fill-extrusion-opacity': 1,
+                        'fill-extrusion-height': ['get', 'height']
+                    }
+                });
+                map.setBearing(-15);
+                map.setZoom(6);
+            } else {
+                map.getSource('grid').setData(grid);
+                map.getSource('buildings').setData(buildings);
+                map.getSource('parks').setData(parks);
+                map.getSource('smallBuildings').setData(smallBuildings);
+            }
+        }
+</script>
+</body>
+</html>
