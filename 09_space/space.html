@@ -37,10 +37,13 @@
             style: 'mapbox://styles/william-davis/cla8vut4y005015m3pksf70yn',
             center: mapCenter,
             zoom: 5.5,
-            minZoom: 5.5,
-            maxZoom: 5.5,
             pitch: 70
         });
+
+        map.scrollZoom.disable();
+        map.boxZoom.disable();
+        map.doubleClickZoom.disable();
+        map.touchZoomRotate.disable();
 
         map.on('load', () => {
 
