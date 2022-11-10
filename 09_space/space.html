@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Space</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #F2EFEA;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        let initLoad = true;
+        const mapCenter = [13.5, 48.5];
+        
+        // please use your own token!
+        mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbGlhbS1kYXZpcyIsImEiOiJja2tiYWtvbWcwMmtzMnBvajh3M2kxZGRuIn0.GeROaHKn2Gbvsg1e8buJEw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/william-davis/cla8vut4y005015m3pksf70yn',
+            center: mapCenter,
+            zoom: 5.5,
+            pitch: 70
+        });
+
+        map.on('load', () => {
+
+            map.jumpTo({
+                center: mapCenter,
+                padding: {top: 400}
+            });
+
+            generatePoint(mapCenter);
+
+            map.on('move', () => {
+                const center = map.getCenter();
+                generatePoint([center.lng, center.lat]);
+            });
+        });
+
+
+        function generatePoint(center) {
+
+            const point = turf.point(center);
+
+            if (initLoad) {
+                initLoad = false;
+                map.loadImage(
+                    '../data/astronaut.png',
+                    (error, image) => {
+                        if (error) throw error;
+
+                        // Add the image to the map style.
+                        map.addImage('astro', image);
+
+                        // Add a data source containing one point feature.
+                        map.addSource('point', {
+                            'type': 'geojson',
+                            'data': point
+                        });
+
+                        // Add a layer to use the image to represent the data.
+                        map.addLayer({
+                            'id': 'points',
+                            'type': 'symbol',
+                            'source': 'point', // reference the data source
+                            'layout': {
+                                'icon-image': 'astro', // reference the image
+                                'icon-size': [
+                                    'interpolate',
+                                    ['linear'],
+                                    ['zoom'],
+                                    5,
+                                    0.1,
+                                    5.5,
+                                    0.3
+                                ],
+                                'icon-ignore-placement': true,
+                                'icon-allow-overlap': true
+                            },
+                            'paint': {
+                                'icon-translate': [
+                                    'interpolate',
+                                    ['linear'],
+                                    ['zoom'],
+                                    5,
+                                    ['literal', [0, -550]],
+                                    5.5,
+                                    ['literal', [0, -450]]
+                                ]
+                            }
+                        });
+                    }
+                );
+                
+            } else {
+                map.getSource('point').setData(point);
+            }
+        }
+</script>
+</body>
+</html>
